@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Распознавание Эмоций с Firebase</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <!-- Firebase ML Kit -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-ml.js"></script>
+</head>
+<body>
+<h1>Приложение для распознавания эмоций</h1>
+<input type="file" id="imageUpload" accept="image/*">
+<button id="uploadImage">Загрузить изображение</button>
+<div id="results"></div>
+<script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyCFM4MZEGd-NbMqVZ7-jOb7uD_QD_2XU_o",
+        authDomain: "emorecognition-6add4.firebaseapp.com",
+        projectId: "emorecognition-6add4",
+        storageBucket: "emorecognition-6add4.appspot.com",
+        messagingSenderId: "1073296253413",
+        appId: "1:1073296253413:web:4d5f34ff7e009e87fa4f0c",
+        measurementId: "G-E16Z8TEX21"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    document.getElementById('uploadImage').addEventListener('click', () => {
+        const fileInput = document.getElementById('imageUpload');
+        const file = fileInput.files[0];
+        if (file) {
+            // Проверка размера файла (например, не больше 5 MB)
+            const maxSize = 5 * 1024 * 1024; // 5 MB
+            if (file.size > maxSize) {
+                alert('Размер файла слишком велик. Пожалуйста, загрузите изображение размером не более 5 MB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const imgBase64 = reader.result.split(',')[1];
+                const resizedImage = await resizeImage(reader.result);
+                const model = firebase.ml().faceDetector();
+                const faces = await model.processImage(resizedImage);
+                displayResults(faces);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function displayResults(faces) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = ''; // Очищаем результаты перед отображением новых
+
+        if (faces.length > 0) {
+            faces.forEach((face, index) => {
+                const emotions = face.annotations.emotion;
+                const result = document.createElement('div');
+                result.innerHTML = `<h3>Лицо ${index + 1}</h3>
+                                    <p>Эмоции: ${JSON.stringify(emotions)}</p>`;
+                resultsDiv.appendChild(result);
+            });
+        } else {
+            resultsDiv.innerHTML = '<p>Лица на изображении не обнаружены.</p>';
+        }
+    }
+
+    function resizeImage(base64Str, maxWidth = 800, maxHeight = 800) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                // Рассчитываем новый размер изображения
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+
+                // Создаем канвас для масштабирования изображения
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Возвращаем изображение в формате base64
+                resolve(canvas.toDataURL('image/jpeg').split(',')[1]);
+            };
+        });
+    }
+</script>
+</body>
+</html>
